@@ -54,6 +54,8 @@ extern crate cookie_factory;
 #[macro_use]
 extern crate nom;
 
+extern crate serde;
+
 mod utils;
 
 /// Error and Frame types.

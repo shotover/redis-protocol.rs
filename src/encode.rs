@@ -1,5 +1,7 @@
 
 use ::utils;
+use bytes::BufMut;
+use bytes::BytesMut;
 use ::types::*;
 
 use utils::{
@@ -8,7 +10,6 @@ use utils::{
 };
 
 use cookie_factory::GenError;
-use bytes::BytesMut;
 
 fn gen_simplestring<'a>(x: (&'a mut [u8], usize), data: &str) -> Result<(&'a mut [u8], usize), GenError> {
   let _ = utils::check_offset(&x);
@@ -114,7 +115,13 @@ fn gen_array<'a>(x: (&'a mut [u8], usize), data: &Vec<Frame>) -> Result<(&'a mut
       Frame::BulkString(ref b) => gen_bulkstring(x, &b)?,
       Frame::Null              => gen_null(x)?,
       Frame::Array(ref frames) => gen_array(x, frames)?,
-      _ => return Err(GenError::CustomError(1))
+
+      // _ => return Err(GenError::CustomError(1))
+      Frame::SimpleString(s) => gen_simplestring(x, s)?,
+      Frame::Error(e) => return Err(GenError::CustomError(1)),
+      Frame::Integer(i) => gen_integer(x, i)?,
+      Frame::Moved(m) => return Err(GenError::CustomError(1)),
+      Frame::Ask(a) => return Err(GenError::CustomError(1)),
     };
   }
 
@@ -172,7 +179,7 @@ mod tests {
   }
 
   fn to_bytes(s: &str) -> BytesMut {
-    BytesMut::from(str_to_bytes(s))
+    BytesMut::from(str_to_bytes(s).as_slice())
   }
 
   fn empty_bytes() -> BytesMut {

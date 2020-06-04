@@ -10,6 +10,8 @@ use std::borrow::Borrow;
 
 use cookie_factory::GenError;
 
+use serde::{Serialize, Deserialize};
+
 use nom::{
   Context,
   Err as NomError,
@@ -201,7 +203,7 @@ impl FrameKind {
 }
 
 /// An enum representing a Frame of data. Frames are recursively defined to account for arrays.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Eq, PartialEq, Clone, Hash, Debug , Serialize, Deserialize)]
 pub enum Frame {
   SimpleString(String),
   Error(String),
@@ -318,11 +320,11 @@ impl Frame {
 
   /// Attempt to parse the frame as a publish-subscribe message, returning the `(channel, message)` tuple
   /// if successful, or the original frame if the inner data is not a publish-subscribe message.
-  pub fn parse_as_pubsub(self) -> Result<(String, String), Self> {
+  pub fn parse_as_pubsub(self) -> Result<(String, String, String), Self> {
     if self.is_pubsub_message() {
 
       // if `is_pubsub_message` returns true but this panics then there's a bug in `is_pubsub_message`, so this fails loudly
-      let (message, channel, _) = match self {
+      let (message, channel, kind) = match self {
         Frame::Array(mut frames) => {
           (
             utils::opt_frame_to_string_panic(frames.pop(), "Expected pubsub payload. This is a bug."),
@@ -333,7 +335,7 @@ impl Frame {
         _ => panic!("Unreachable 1. This is a bug.")
       };
 
-      Ok((channel, message))
+      Ok((channel, message, kind))
     }else{
       Err(self)
     }
@@ -484,7 +486,7 @@ mod tests {
     assert!(utils::is_pattern_pubsub(&frames));
     let frame = Frame::Array(frames);
 
-    let (channel, message) = frame.parse_as_pubsub().expect("Expected pubsub frames");
+    let (channel, message, _) = frame.parse_as_pubsub().expect("Expected pubsub frames");
 
     assert_eq!(channel, "foo");
     assert_eq!(message, "bar");
@@ -500,7 +502,7 @@ mod tests {
     assert!(!utils::is_pattern_pubsub(&frames));
     let frame = Frame::Array(frames);
 
-    let (channel, message) = frame.parse_as_pubsub().expect("Expected pubsub frames");
+    let (channel, message, _) = frame.parse_as_pubsub().expect("Expected pubsub frames");
 
     assert_eq!(channel, "foo");
     assert_eq!(message, "bar");

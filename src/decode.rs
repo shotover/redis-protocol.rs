@@ -132,7 +132,7 @@ pub fn decode(buf: &[u8]) -> Result<(Option<Frame>, usize), RedisProtocolError> 
 /// If the byte slice contains an incomplete frame then `None` is returned.
 ///
 /// **The caller is responsible for consuming the underlying bytes.**
-pub fn decode_bytes(buf: &BytesMut) -> Result<(Option<Frame>, usize), RedisProtocolError> {
+pub fn decode_bytes(buf: & BytesMut) -> Result<(Option<Frame>, usize), RedisProtocolError> {
   decode(buf)
 }
 
@@ -156,7 +156,7 @@ mod tests {
   }
 
   fn to_bytes(s: &str) -> BytesMut {
-    BytesMut::from(str_to_bytes(s))
+    BytesMut::from(str_to_bytes(s).as_slice())
   }
 
   fn empty_bytes() -> BytesMut {
@@ -174,7 +174,7 @@ mod tests {
   }
 
   fn decode_and_verify_some(bytes: &mut BytesMut, expected: &(Option<Frame>, usize)) {
-    let (frame, len) = match decode_bytes(&bytes) {
+    let (frame, len) = match decode_bytes(bytes) {
       Ok((f, l)) => (f, l),
       Err(e) => return pretty_print_panic(e)
     };
@@ -186,7 +186,7 @@ mod tests {
   fn decode_and_verify_padded_some(bytes: &mut BytesMut, expected: &(Option<Frame>, usize)) {
     bytes.extend_from_slice(PADDING.as_bytes());
 
-    let (frame, len) = match decode_bytes(&bytes) {
+    let (frame, len) = match decode_bytes(bytes) {
       Ok((f, l)) => (f, l),
       Err(e) => return pretty_print_panic(e)
     };
@@ -196,7 +196,7 @@ mod tests {
   }
 
   fn decode_and_verify_none(bytes: &mut BytesMut) {
-    let (frame, len) = match decode_bytes(&bytes) {
+    let (frame, len) = match decode_bytes(bytes) {
       Ok((f, l)) => (f, l),
       Err(e) => return pretty_print_panic(e)
     };
