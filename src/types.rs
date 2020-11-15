@@ -17,6 +17,7 @@ use nom::{
   Err as NomError,
   Needed
 };
+use bytes::BytesMut;
 
 pub const SIMPLESTRING_BYTE: u8 = b'+';
 pub const ERROR_BYTE: u8        = b'-';
@@ -208,7 +209,7 @@ pub enum Frame {
   SimpleString(String),
   Error(String),
   Integer(i64),
-  BulkString(Vec<u8>),
+  BulkString(BytesMut),
   Array(Vec<Frame>),
   Moved(String),
   Ask(String),
@@ -594,7 +595,7 @@ mod tests {
     assert!(!f.is_integer());
     assert!(!f.is_moved_or_ask_error());
 
-    let f = Frame::BulkString("foo".as_bytes().to_vec());
+    let f = Frame::BulkString(BytesMut::from("foo"));
     assert!(!f.is_null());
     assert!(f.is_string());
     assert!(!f.is_error());

@@ -228,8 +228,8 @@ mod tests {
   fn should_encode_llen_req_example() {
     let expected = "*2\r\n$4\r\nLLEN\r\n$6\r\nmylist\r\n";
     let input = Frame::Array(vec![
-      Frame::BulkString(str_to_bytes("LLEN")),
-      Frame::BulkString(str_to_bytes("mylist"))
+      Frame::BulkString(BytesMut::from("LLEN")),
+      Frame::BulkString(BytesMut::from("mylist"))
     ]);
 
     encode_and_verify_empty(&input, expected);
@@ -240,8 +240,8 @@ mod tests {
   fn should_encode_incr_req_example() {
     let expected = "*2\r\n$4\r\nINCR\r\n$5\r\nmykey\r\n";
     let input = Frame::Array(vec![
-      Frame::BulkString(str_to_bytes("INCR")),
-      Frame::BulkString(str_to_bytes("mykey"))
+      Frame::BulkString(BytesMut::from("INCR")),
+      Frame::BulkString(BytesMut::from("mykey"))
     ]);
 
     encode_and_verify_empty(&input, expected);
@@ -252,8 +252,8 @@ mod tests {
   fn should_encode_bitcount_req_example() {
     let expected = "*2\r\n$8\r\nBITCOUNT\r\n$5\r\nmykey\r\n";
     let input = Frame::Array(vec![
-      Frame::BulkString(str_to_bytes("BITCOUNT")),
-      Frame::BulkString(str_to_bytes("mykey"))
+      Frame::BulkString(BytesMut::from("BITCOUNT")),
+      Frame::BulkString(BytesMut::from("mykey"))
     ]);
 
     encode_and_verify_empty(&input, expected);
@@ -264,9 +264,9 @@ mod tests {
   fn should_encode_array_bulk_string_test() {
     let expected = "*3\r\n$5\r\nWATCH\r\n$6\r\nWIBBLE\r\n$9\r\nfooBARbaz\r\n";
     let input = Frame::Array(vec![
-      Frame::BulkString(str_to_bytes("WATCH")),
-      Frame::BulkString(str_to_bytes("WIBBLE")),
-      Frame::BulkString(str_to_bytes("fooBARbaz"))
+      Frame::BulkString(BytesMut::from("WATCH")),
+      Frame::BulkString(BytesMut::from("WIBBLE")),
+      Frame::BulkString(BytesMut::from("fooBARbaz"))
     ]);
 
     encode_and_verify_empty(&input, expected);
@@ -277,8 +277,8 @@ mod tests {
   fn should_encode_array_null_test() {
     let expected = "*3\r\n$4\r\nHSET\r\n$3\r\nfoo\r\n$-1\r\n";
     let input = Frame::Array(vec![
-      Frame::BulkString(str_to_bytes("HSET")),
-      Frame::BulkString(str_to_bytes("foo")),
+      Frame::BulkString(BytesMut::from("HSET")),
+      Frame::BulkString(BytesMut::from("foo")),
       Frame::Null
     ]);
 
@@ -290,8 +290,8 @@ mod tests {
   fn should_encode_raw_llen_req_example() {
     let expected = "*2\r\n$4\r\nLLEN\r\n$6\r\nmylist\r\n";
     let input = Frame::Array(vec![
-      Frame::BulkString(str_to_bytes("LLEN")),
-      Frame::BulkString(str_to_bytes("mylist"))
+      Frame::BulkString(BytesMut::from("LLEN")),
+      Frame::BulkString(BytesMut::from("mylist"))
     ]);
 
     encode_raw_and_verify_empty(&input, expected);
@@ -301,8 +301,8 @@ mod tests {
   fn should_encode_raw_incr_req_example() {
     let expected = "*2\r\n$4\r\nINCR\r\n$5\r\nmykey\r\n";
     let input = Frame::Array(vec![
-      Frame::BulkString(str_to_bytes("INCR")),
-      Frame::BulkString(str_to_bytes("mykey"))
+      Frame::BulkString(BytesMut::from("INCR")),
+      Frame::BulkString(BytesMut::from("mykey"))
     ]);
 
     encode_raw_and_verify_empty(&input, expected);
@@ -312,8 +312,8 @@ mod tests {
   fn should_encode_raw_bitcount_req_example() {
     let expected = "*2\r\n$8\r\nBITCOUNT\r\n$5\r\nmykey\r\n";
     let input = Frame::Array(vec![
-      Frame::BulkString(str_to_bytes("BITCOUNT")),
-      Frame::BulkString(str_to_bytes("mykey"))
+      Frame::BulkString(BytesMut::from("BITCOUNT")),
+      Frame::BulkString(BytesMut::from("mykey"))
     ]);
 
     encode_raw_and_verify_empty(&input, expected);
@@ -323,9 +323,9 @@ mod tests {
   fn should_encode_raw_array_bulk_string_test() {
     let expected = "*3\r\n$5\r\nWATCH\r\n$6\r\nWIBBLE\r\n$9\r\nfooBARbaz\r\n";
     let input = Frame::Array(vec![
-      Frame::BulkString(str_to_bytes("WATCH")),
-      Frame::BulkString(str_to_bytes("WIBBLE")),
-      Frame::BulkString(str_to_bytes("fooBARbaz"))
+      Frame::BulkString(BytesMut::from("WATCH")),
+      Frame::BulkString(BytesMut::from("WIBBLE")),
+      Frame::BulkString(BytesMut::from("fooBARbaz"))
     ]);
 
     encode_raw_and_verify_empty(&input, expected);
@@ -335,8 +335,8 @@ mod tests {
   fn should_encode_raw_array_null_test() {
     let expected = "*3\r\n$4\r\nHSET\r\n$3\r\nfoo\r\n$-1\r\n";
     let input = Frame::Array(vec![
-      Frame::BulkString(str_to_bytes("HSET")),
-      Frame::BulkString(str_to_bytes("foo")),
+      Frame::BulkString(BytesMut::from("HSET")),
+      Frame::BulkString(BytesMut::from("foo")),
       Frame::Null
     ]);
 
