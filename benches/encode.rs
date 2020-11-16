@@ -11,7 +11,7 @@ extern crate lazy_static;
 use rand::Rng;
 
 use redis_protocol::prelude::*;
-use bytes::BytesMut;
+use bytes::{BytesMut, Bytes};
 
 pub fn rand_chars(len: usize) -> String {
   rand::thread_rng()
@@ -27,7 +27,7 @@ pub fn rand_array(len: usize, null_every: usize, str_len: usize) -> Vec<Frame> {
     if i+1 % null_every == 0 {
       v.push(Frame::Null);
     }else{
-      v.push(Frame::BulkString(rand_chars(str_len).into_bytes()));
+      v.push(Frame::BulkString(Bytes::from(rand_chars(str_len).into_bytes())));
     }
   }
 
@@ -43,7 +43,7 @@ mod tests {
 
   #[bench]
   fn bench_encode_1kb_bulkstring(b: &mut Bencher) {
-    let f = Frame::BulkString(rand_chars(1024).into_bytes());
+    let f = Frame::BulkString(Bytes::from(rand_chars(1024).into_bytes()));
 
     b.iter(|| {
       let mut b = BytesMut::new();
@@ -53,7 +53,7 @@ mod tests {
 
   #[bench]
   fn bench_encode_10kb_bulkstring(b: &mut Bencher) {
-    let f = Frame::BulkString(rand_chars(10 * 1024).into_bytes());
+    let f = Frame::BulkString(Bytes::from(rand_chars(10 * 1024).into_bytes()));
 
     b.iter(|| {
       let mut b = BytesMut::new();
@@ -63,7 +63,7 @@ mod tests {
 
   #[bench]
   fn bench_encode_100kb_bulkstring(b: &mut Bencher) {
-    let f = Frame::BulkString(rand_chars(100 * 1024).into_bytes());
+    let f = Frame::BulkString(Bytes::from(rand_chars(100 * 1024).into_bytes()));
 
     b.iter(|| {
       let mut b = BytesMut::new();
@@ -73,7 +73,7 @@ mod tests {
 
   #[bench]
   fn bench_encode_1mb_bulkstring(b: &mut Bencher) {
-    let f = Frame::BulkString(rand_chars(1024 * 1024).into_bytes());
+    let f = Frame::BulkString(Bytes::from(rand_chars(1024 * 1024).into_bytes()));
 
     b.iter(|| {
       let mut b = BytesMut::new();
@@ -83,7 +83,7 @@ mod tests {
 
   #[bench]
   fn bench_encode_10mb_bulkstring(b: &mut Bencher) {
-    let f = Frame::BulkString(rand_chars(10 * 1024 * 1024).into_bytes());
+    let f = Frame::BulkString(Bytes::from(rand_chars(10 * 1024 * 1024).into_bytes()));
 
     b.iter(|| {
       let mut b = BytesMut::new();

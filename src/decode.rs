@@ -82,7 +82,7 @@ named!(parse_error<Frame>, map!(read_to_crlf_s, map_error));
 named_args!(parse_bulkstring(len: isize) <Frame>,
   do_parse!(
     d: terminated!(take!(len), take!(2)) >>
-    (Frame::BulkString(BytesMut::from(d)))
+    (Frame::BulkString(BytesMut::from(d).freeze()))
   )
 );
 
@@ -225,7 +225,7 @@ mod tests {
 
   #[test]
   fn should_decode_bulk_string() {
-    let expected = (Some(Frame::BulkString(BytesMut::from("foo"))), 9);
+    let expected = (Some(Frame::BulkString(BytesMut::from("foo").freeze())), 9);
     let mut bytes: BytesMut = "$3\r\nfoo\r\n".into();
 
     decode_and_verify_some(&mut bytes, &expected);
@@ -249,9 +249,9 @@ mod tests {
     let mut bytes: BytesMut = "*3\r\n$3\r\nFoo\r\n$-1\r\n$3\r\nBar\r\n".into();
 
     let expected = (Some(Frame::Array(vec![
-      Frame::BulkString(BytesMut::from("Foo")),
+      Frame::BulkString(BytesMut::from("Foo").freeze()),
       Frame::Null,
-      Frame::BulkString(BytesMut::from("Bar"))
+      Frame::BulkString(BytesMut::from("Bar").freeze())
     ])), bytes.len());
 
     decode_and_verify_some(&mut bytes, &expected);
