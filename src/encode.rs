@@ -78,7 +78,7 @@ fn write_value(stream: & mut BytesMut, frame: &Frame) -> io::Result<()> {
       let len = val.len();
       stream.put_u8(b'*');
       write_decimal(stream, len as i64)?;
-      stream.put_slice(b"\r\n");
+      // stream.put_slice(b"\r\n");
 
       for v in val {
         write_value(stream, v)?;
@@ -226,6 +226,25 @@ mod tests {
       Frame::BulkString(str_to_bytes("WATCH")),
       Frame::BulkString(str_to_bytes("WIBBLE")),
       Frame::BulkString(str_to_bytes("fooBARbaz"))
+    ]);
+
+    encode_and_verify_empty(&input, expected);
+    encode_and_verify_non_empty(&input, expected);
+  }
+
+  #[test]
+  fn should_encode_array_nested_test() {
+    let expected = "*2\r\n*3\r\n:1\r\n:2\r\n:3\r\n*2\r\n+Foo\r\n-Bar\r\n";
+    let input = Frame::Array(vec![
+      Frame::Array(vec![
+        Frame::Integer(1),
+        Frame::Integer(2),
+        Frame::Integer(3)
+      ]),
+      Frame::Array(vec![
+        Frame::SimpleString("Foo".to_string()),
+        Frame::Error("Bar".to_string()),
+      ]),
     ]);
 
     encode_and_verify_empty(&input, expected);
