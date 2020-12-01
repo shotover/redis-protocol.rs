@@ -9,6 +9,7 @@ readme = "README.md"
 repository = "https://github.com/aembke/redis-protocol.rs"
 version = "1.0.0"
 
+
 [badges]
 
 [badges.maintenance]
@@ -20,11 +21,10 @@ repository = "aembke/redis-protocol.rs"
 
 [dependencies]
 bytes = "0.5.*"
-cookie-factory = "=0.2.4"
+anyhow = "1.0.31"
+atoi = "0.4.0"
 crc16 = "0.3"
 log = "0.4"
-nom = "4.0"
-pretty_env_logger = "0.2"
 serde = { version = "1.0.111", features = ["derive"] }
 
 [dev-dependencies]

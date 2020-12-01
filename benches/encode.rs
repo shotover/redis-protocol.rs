@@ -47,7 +47,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     });
   }
 
@@ -57,7 +57,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     });
   }
 
@@ -67,7 +67,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     });
   }
 
@@ -77,7 +77,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     });
   }
 
@@ -87,7 +87,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     });
   }
 
@@ -100,7 +100,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     })
   }
 
@@ -110,7 +110,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     })
   }
 
@@ -120,7 +120,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     })
   }
 
@@ -130,7 +130,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     })
   }
 
@@ -140,7 +140,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     })
   }
 
@@ -150,7 +150,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     })
   }
 
@@ -160,7 +160,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     })
   }
 
@@ -170,7 +170,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     })
   }
 
@@ -180,7 +180,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     })
   }
 
@@ -190,7 +190,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     })
   }
 
@@ -200,7 +200,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     })
   }
 
@@ -210,7 +210,7 @@ mod tests {
 
     b.iter(|| {
       let mut b = BytesMut::new();
-      black_box(encode_bytes(&mut b, &f));
+      black_box(encode(&mut b, &f));
     })
   }
 
