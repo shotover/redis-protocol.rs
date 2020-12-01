@@ -1,130 +1,24 @@
 
-use ::utils;
 use ::types::*;
-
-use utils::CRLF;
-
-use nom::{
-  be_u8,
-  Err as NomError
-};
 
 use bytes::BytesMut;
 
-use std::str;
-use std::num::ParseIntError;
-
-const NULL_LEN: isize = -1;
-
-fn to_isize(s: &str) -> Result<isize, ParseIntError> {
-  s.parse::<isize>()
-}
-
-fn to_i64(s: &str) -> Result<i64, ParseIntError> {
-  s.parse::<i64>()
-}
-
-fn map_error(s: &str) -> Frame {
-  utils::read_cluster_error(s)
-    .unwrap_or_else(|| Frame::Error(s.to_owned()))
-}
-
-fn isize_to_usize<'a>(s: isize) -> Result<usize, RedisProtocolError<'a>> {
-  if s >= 0 {
-    Ok(s as usize)
-  }else{
-    Err(RedisProtocolError::new(RedisProtocolErrorKind::DecodeError, "Invalid length."))
-  }
-}
-
-// https://redis.io/topics/protocol#resp-protocol-description
-
-named!(read_to_crlf<&[u8]>, terminated!(take_until!(CRLF), take!(2)));
-
-named!(read_to_crlf_s<&str>, map_res!(read_to_crlf, str::from_utf8));
-
-named!(read_prefix_len<isize>, map_res!(read_to_crlf_s, to_isize));
-
-named!(frame_type<FrameKind>,
-  switch!(be_u8,
-    SIMPLESTRING_BYTE => value!(FrameKind::SimpleString) |
-    ERROR_BYTE        => value!(FrameKind::Error) |
-    INTEGER_BYTE      => value!(FrameKind::Integer) |
-    BULKSTRING_BYTE   => value!(FrameKind::BulkString) |
-    ARRAY_BYTE        => value!(FrameKind::Array)
-  )
-);
-
-named!(parse_simplestring<Frame>,
-  do_parse!(
-    data: read_to_crlf_s >>
-    (Frame::SimpleString(data.to_owned()))
-  )
-);
-
-named!(parse_integer<Frame>,
-  do_parse!(
-    data: map_res!(read_to_crlf_s, to_i64) >>
-    (Frame::Integer(data))
-  )
-);
-
-// assumes the '$-1\r\n' has been consumed already, since nulls look like bulk strings until the length prefix is parsed,
-// and parsing the length prefix consumes the trailing \r\n in the underlying `terminated!` call
-named!(parse_null<Frame>,
-  do_parse!(
-    (Frame::Null)
-  )
-);
-
-named!(parse_error<Frame>, map!(read_to_crlf_s, map_error));
-
-named_args!(parse_bulkstring(len: isize) <Frame>,
-  do_parse!(
-    d: terminated!(take!(len), take!(2)) >>
-    (Frame::BulkString(Vec::from(d)))
-  )
-);
-
-named!(parse_bulkstring_or_null<Frame>,
-  switch!(read_prefix_len,
-    NULL_LEN => call!(parse_null) |
-    len      => call!(parse_bulkstring, len)
-  )
-);
-
-named_args!(parse_array_frames(len: usize) <Vec<Frame>>, count!(parse_frame, len));
-
-named!(parse_array<Frame>,
-  switch!(read_prefix_len,
-    NULL_LEN => call!(parse_null) |
-    len      => do_parse!(
-      size: map_res!(value!(len), isize_to_usize) >>
-      frames: call!(parse_array_frames, size) >>
-      (Frame::Array(frames))
-    )
-  )
-);
-
-named!(parse_frame<Frame>,
-  switch!(frame_type,
-    FrameKind::SimpleString => call!(parse_simplestring) |
-    FrameKind::Error        => call!(parse_error) |
-    FrameKind::Integer      => call!(parse_integer) |
-    FrameKind::BulkString   => call!(parse_bulkstring_or_null) |
-    FrameKind::Array        => call!(parse_array)
-  )
-);
-
 /// Attempt to parse the contents of `buf`, returning the first valid frame and the number of bytes consumed.
 /// If the byte slice contains an incomplete frame then `None` is returned.
-pub fn decode(buf: &[u8]) -> Result<(Option<Frame>, usize), RedisProtocolError> {
-  let len = buf.len();
+pub fn decode(buf: &[u8]) -> Result<(Option<Frame>, usize), Error> {
+  let mut cursor = std::io::Cursor::new(buf);
+  let start = cursor.position();
 
-  match parse_frame(buf) {
-    Ok((remaining, frame))       => Ok((Some(frame), len - remaining.len())),
-    Err(NomError::Incomplete(_)) => Ok((None, 0)),
-    Err(e)                       => Err(e.into())
+  match Frame::parse(&mut cursor) {
+    Ok(f) => {
+      Ok((Some(f), (cursor.position() - start) as usize))
+    }
+    Err(Error::Incomplete) => {
+      Ok((None, 0))
+    }
+    Err(Error::Other(e)) => {
+      Err(Error::Other(e))
+    }
   }
 }
 
@@ -132,7 +26,7 @@ pub fn decode(buf: &[u8]) -> Result<(Option<Frame>, usize), RedisProtocolError> 
 /// If the byte slice contains an incomplete frame then `None` is returned.
 ///
 /// **The caller is responsible for consuming the underlying bytes.**
-pub fn decode_bytes(buf: & BytesMut) -> Result<(Option<Frame>, usize), RedisProtocolError> {
+pub fn decode_bytes(buf: & BytesMut) -> Result<(Option<Frame>, usize), Error> {
   decode(buf)
 }
 
@@ -146,31 +40,25 @@ mod tests {
   use std::fmt;
   use std::str;
 
-  use nom::Err as NomError;
-  use nom::simple_errors::Context;
+  use bytes::Bytes;
 
   const PADDING: &'static str = "FOOBARBAZ";
 
-  fn str_to_bytes(s: &str) -> Vec<u8> {
-    s.as_bytes().to_vec()
+  fn str_to_bytes(s: &str) -> Bytes {
+    Bytes::from(s.as_bytes().to_vec())
+
   }
 
   fn to_bytes(s: &str) -> BytesMut {
-    BytesMut::from(str_to_bytes(s).as_slice())
+    BytesMut::from(s)
   }
 
   fn empty_bytes() -> BytesMut {
     BytesMut::new()
   }
 
-  fn pretty_print_panic(e: RedisProtocolError) {
-    match e.context() {
-      Some(c) => match str::from_utf8(c) {
-        Ok(s) => panic!("Error {:?} with {}", e, s),
-        Err(e) => panic!("{:?}", e)
-      },
-      _ => panic!("{:?}", e)
-    }
+  fn pretty_print_panic(e: Error) {
+    panic!("{:?}", e);
   }
 
   fn decode_and_verify_some(bytes: &mut BytesMut, expected: &(Option<Frame>, usize)) {
@@ -270,7 +158,7 @@ mod tests {
   #[test]
   fn should_decode_moved_error() {
     let mut bytes: BytesMut = "-MOVED 3999 127.0.0.1:6381\r\n".into();
-    let expected = (Some(Frame::Moved("3999 127.0.0.1:6381".into())), bytes.len());
+    let expected = (Some(Frame::Moved("MOVED 3999 127.0.0.1:6381".into())), bytes.len());
 
     decode_and_verify_some(&mut bytes, &expected);
     decode_and_verify_padded_some(&mut bytes, &expected);
@@ -279,7 +167,7 @@ mod tests {
   #[test]
   fn should_decode_ask_error() {
     let mut bytes: BytesMut = "-ASK 3999 127.0.0.1:6381\r\n".into();
-    let expected = (Some(Frame::Ask("3999 127.0.0.1:6381".into())), bytes.len());
+    let expected = (Some(Frame::Ask("ASK 3999 127.0.0.1:6381".into())), bytes.len());
 
     decode_and_verify_some(&mut bytes, &expected);
     decode_and_verify_padded_some(&mut bytes, &expected);

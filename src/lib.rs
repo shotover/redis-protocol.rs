@@ -16,7 +16,7 @@
 //!   let frame = Frame::BulkString("foobar".into());
 //!   let mut buf = BytesMut::new();
 //!
-//!   let len = match encode_bytes(&mut buf, &frame) {
+//!   let len = match encode(&mut buf, &frame) {
 //!     Ok(l) => l,
 //!     Err(e) => panic!("Error encoding frame: {:?}", e)
 //!   };
@@ -44,19 +44,17 @@
 
 #[macro_use]
 extern crate log;
-extern crate pretty_env_logger;
+// extern crate pretty_env_logger;
 
 extern crate bytes;
 extern crate crc16;
 
-#[macro_use]
-extern crate cookie_factory;
-#[macro_use]
-extern crate nom;
+extern crate anyhow;
+extern crate atoi;
 
 extern crate serde;
 
-mod utils;
+pub mod utils;
 
 /// Error and Frame types.
 pub mod types;

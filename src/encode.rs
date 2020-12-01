@@ -1,168 +1,127 @@
-
 use ::utils;
+use anyhow::Result;
+use bytes::BufMut;
 use bytes::BytesMut;
 use ::types::*;
 
-use utils::{
-  CRLF,
-  NULL
-};
+use std::io::Cursor;
+use std::io;
 
-use cookie_factory::GenError;
+/// Write a single `Frame` value to the underlying stream.
+    ///
+    /// The `Frame` value is written to the socket using the various `write_*`
+    /// functions provided by `AsyncWrite`. Calling these functions directly on
+    /// a `TcpStream` is **not** advised, as this will result in a large number of
+    /// syscalls. However, it is fine to call these functions on a *buffered*
+    /// write stream. The data will be written to the buffer. Once the buffer is
+    /// full, it is flushed to the underlying socket.
+pub fn write_frame(stream: & mut BytesMut, frame: &Frame) -> io::Result<()> {
+  // Arrays are encoded by encoding each entry. All other frame types are
+  // considered literals. For now, mini-redis is not able to encode
+  // recursive frame structures. See below for more details.
+  // let start = stream.
+  match frame {
+    Frame::Array(val) => {
+      // Encode the frame type prefix. For an array, it is `*`.
+      stream.put_u8(b'*');
 
-fn gen_simplestring<'a>(x: (&'a mut [u8], usize), data: &str) -> Result<(&'a mut [u8], usize), GenError> {
-  let _ = utils::check_offset(&x);
+      // Encode the length of the array.
+      write_decimal(stream, val.len() as i64)?;
 
-  let required = utils::simplestring_encode_len(data);
-  let remaining = x.0.len() - x.1;
-
-  if remaining < required {
-    return Err(GenError::BufferTooSmall(required - remaining));
+      // Iterate and encode each entry in the array.
+      for entry in &**val {
+        write_value(stream, entry)?;
+      }
+    }
+    // The frame type is a literal. Encode the value directly.
+    _ => write_value(stream, frame)?,
   }
 
-  do_gen!(x,
-    gen_be_u8!(FrameKind::SimpleString.to_byte()) >>
-    gen_slice!(data.as_bytes()) >>
-    gen_slice!(CRLF.as_bytes())
-  )
+  // Ensure the encoded frame is written to the socket. The calls above
+  // are to the buffered stream and writes. Calling `flush` writes the
+  // remaining contents of the buffer to the socket.
+  Ok(())
 }
 
-fn gen_error<'a>(x: (&'a mut [u8], usize), data: &str) -> Result<(&'a mut [u8], usize), GenError> {
-  let _ = utils::check_offset(&x);
+/// Write a frame literal to the stream
+fn write_value(stream: & mut BytesMut, frame: &Frame) -> io::Result<()> {
+  match frame {
+    Frame::SimpleString(val) => {
+      stream.put_u8(b'+');
+      stream.put_slice(val.as_bytes());
+      stream.put_slice(b"\r\n");
+    }
+    Frame::Error(val) => {
+      stream.put_u8(b'-');
+      stream.put_slice(val.as_bytes());
+      stream.put_slice(b"\r\n");
+    }
+    Frame::Integer(val) => {
+      stream.put_u8(b':');
+      write_decimal(stream, *val)?;
+    }
+    Frame::Null => {
+      stream.put_slice(b"$-1\r\n");
+    }
+    Frame::BulkString(val) => {
+      let len = val.len();
 
-  let required = utils::error_encode_len(data);
-  let remaining = x.0.len() - x.1;
+      stream.put_u8(b'$');
+      write_decimal(stream, len as i64)?;
+      stream.put_slice(val);
+      stream.put_slice(b"\r\n");
+    }
+    // Encoding an `Array` from within a value cannot be done using a
+    // recursive strategy. In general, async fns do not support
+    // recursion. Mini-redis has not needed to encode nested arrays yet,
+    // so for now it is skipped.
+    Frame::Array(val) => {
+      let len = val.len();
+      stream.put_u8(b'*');
+      write_decimal(stream, len as i64)?;
+      stream.put_slice(b"\r\n");
 
-  if remaining < required {
-    return Err(GenError::BufferTooSmall(required - remaining));
+      for v in val {
+        write_value(stream, v)?;
+      }
+    },
+    Frame::Moved(val) => {
+      stream.put_u8(b'-');
+      stream.put_slice(val.as_bytes());
+      stream.put_slice(b"\r\n");
+    }
+    Frame::Ask(val) => {
+      stream.put_u8(b'-');
+      stream.put_slice(val.as_bytes());
+      stream.put_slice(b"\r\n");
+    }
   }
 
-  do_gen!(x,
-    gen_be_u8!(FrameKind::Error.to_byte()) >>
-    gen_slice!(data.as_bytes()) >>
-    gen_slice!(CRLF.as_bytes())
-  )
+  Ok(())
 }
 
-fn gen_integer<'a>(x: (&'a mut [u8], usize), data: &i64) -> Result<(&'a mut [u8], usize), GenError> {
-  let _ = utils::check_offset(&x);
+/// Write a decimal frame to the stream
+fn write_decimal(stream: & mut BytesMut, val: i64) -> io::Result<()> {
+  use std::io::Write;
 
-  let required = utils::integer_encode_len(data);
-  let remaining = x.0.len() - x.1;
+  // Convert the value to a string
+  let mut buf = [0u8; 12];
+  let mut buf = Cursor::new(&mut buf[..]);
+  write!(&mut buf, "{}", val)?;
 
-  if remaining < required {
-    return Err(GenError::BufferTooSmall(required - remaining));
-  }
+  let pos = buf.position() as usize;
+  stream.put_slice(&buf.get_ref()[..pos]);
+  stream.put_slice(b"\r\n");
 
-  do_gen!(x,
-    gen_be_u8!(FrameKind::Integer.to_byte()) >>
-    gen_slice!(data.to_string().as_bytes()) >>
-    gen_slice!(CRLF.as_bytes())
-  )
-}
-
-fn gen_bulkstring<'a>(x: (&'a mut [u8], usize), data: &[u8]) -> Result<(&'a mut [u8], usize), GenError> {
-  let _ = utils::check_offset(&x)?;
-
-  let required = utils::bulkstring_encode_len(data);
-  let remaining = x.0.len() - x.1;
-
-  if remaining < required {
-    return Err(GenError::BufferTooSmall(required - remaining));
-  }
-
-  do_gen!(x,
-    gen_be_u8!(FrameKind::BulkString.to_byte()) >>
-    gen_slice!(data.len().to_string().as_bytes()) >>
-    gen_slice!(CRLF.as_bytes()) >>
-    gen_slice!(data) >>
-    gen_slice!(CRLF.as_bytes())
-  )
-}
-
-fn gen_null(x: (&mut [u8], usize)) -> Result<(&mut [u8], usize), GenError> {
-  let _ = utils::check_offset(&x)?;
-
-  let required = NULL.as_bytes().len();
-  let remaining = x.0.len() - x.1;
-
-  if remaining < required {
-    return Err(GenError::BufferTooSmall(required - remaining));
-  }
-
-  do_gen!(x, gen_slice!(NULL.as_bytes()))
-}
-
-fn gen_array<'a>(x: (&'a mut [u8], usize), data: &Vec<Frame>) -> Result<(&'a mut [u8], usize), GenError> {
-  let _ = utils::check_offset(&x)?;
-
-  let required = utils::array_encode_len(data)?;
-  let remaining = x.0.len() - x.1;
-
-  if remaining < required {
-    return Err(GenError::BufferTooSmall(required - remaining));
-  }
-
-  let mut x = do_gen!(x,
-    gen_be_u8!(FrameKind::Array.to_byte()) >>
-    gen_slice!(data.len().to_string().as_bytes()) >>
-    gen_slice!(CRLF.as_bytes())
-  )?;
-
-  for frame in data.iter() {
-    x = match frame {
-      Frame::BulkString(ref b) => gen_bulkstring(x, &b)?,
-      Frame::Null              => gen_null(x)?,
-      Frame::Array(ref frames) => gen_array(x, frames)?,
-
-      // _ => return Err(GenError::CustomError(1))
-      Frame::SimpleString(s) => gen_simplestring(x, s)?,
-      Frame::Error(e) => return Err(GenError::CustomError(1)),
-      Frame::Integer(i) => gen_integer(x, i)?,
-      Frame::Moved(m) => return Err(GenError::CustomError(1)),
-      Frame::Ask(a) => return Err(GenError::CustomError(1)),
-    };
-  }
-
-  // no trailing CRLF here, the inner values add that
-  Ok(x)
-}
-
-fn attempt_encoding(buf: &mut [u8], offset: usize, frame: &Frame) -> Result<usize, GenError> {
-  match *frame {
-    Frame::BulkString(ref b)   => gen_bulkstring((buf, offset), b).map(|(_, l)| l),
-    Frame::Null                => gen_null((buf, offset)).map(|(_, l)| l),
-    Frame::Array(ref frames)   => gen_array((buf, offset), frames).map(|(_, l)| l),
-    Frame::Error(ref s)        => gen_error((buf, offset), s).map(|(_, l)| l),
-    Frame::Moved(ref s)        => gen_error((buf, offset), s).map(|(_, l)| l),
-    Frame::Ask(ref s)          => gen_error((buf, offset), s).map(|(_, l)| l),
-    Frame::SimpleString(ref s) => gen_simplestring((buf, offset), s).map(|(_, l)| l),
-    Frame::Integer(ref i)      => gen_integer((buf, offset), i).map(|(_, l)| l)
-  }
+  Ok(())
 }
 
 /// Attempt to encode a frame into `buf`, assuming a starting offset of 0.
 ///
 /// The caller is responsible for extending the buffer if a `RedisProtocolErrorKind::BufferTooSmall` is returned.
-pub fn encode<'a>(buf: &'a mut [u8], frame: &Frame) -> Result<usize, RedisProtocolError<'a>> {
-  attempt_encoding(buf, 0, frame).map_err(|e| e.into())
-}
-
-/// Attempt to encode a frame into `buf`, extending the buffer as needed.
-///
-/// Returns the new length of the buffer.
-pub fn encode_bytes<'a>(buf: &'a mut BytesMut, frame: &Frame) -> Result<usize, RedisProtocolError<'a>> {
-  let offset = buf.len();
-
-  loop {
-    match attempt_encoding(buf, offset, frame) {
-      Ok(size) => return Ok(size),
-      Err(e) => match e {
-        GenError::BufferTooSmall(amt) => utils::zero_extend(buf, amt),
-        _ => return Err(e.into())
-      }
-    }
-  }
+pub fn encode(buf: &mut BytesMut, frame: &Frame) -> Result<usize> {
+  write_frame(buf, frame)?;
+  Ok(buf.len())
 }
 
 #[cfg(test)]
@@ -170,15 +129,17 @@ mod tests {
   use super::*;
   use ::utils::*;
   use ::types::*;
+  use bytes::Bytes;
 
   const PADDING: &'static str = "foobar";
 
-  fn str_to_bytes(s: &str) -> Vec<u8> {
-    s.as_bytes().to_vec()
+  fn str_to_bytes(s: &str) -> Bytes {
+    Bytes::from(s.as_bytes().to_vec())
+
   }
 
   fn to_bytes(s: &str) -> BytesMut {
-    BytesMut::from(str_to_bytes(s).as_slice())
+    BytesMut::from(s)
   }
 
   fn empty_bytes() -> BytesMut {
@@ -188,7 +149,7 @@ mod tests {
   fn encode_and_verify_empty(input: &Frame, expected: &str) {
     let mut buf = empty_bytes();
 
-    let len = match encode_bytes(&mut buf, input) {
+    let len = match encode(&mut buf, input) {
       Ok(l) => l,
       Err(e) => panic!("{:?}", e)
     };
@@ -201,7 +162,7 @@ mod tests {
     let mut buf = empty_bytes();
     buf.extend_from_slice(PADDING.as_bytes());
 
-    let len = match encode_bytes(&mut buf, input) {
+    let len = match encode(&mut buf, input) {
       Ok(l) => l,
       Err(e) => panic!("{:?}", e)
     };
@@ -212,7 +173,7 @@ mod tests {
   }
 
   fn encode_raw_and_verify_empty(input: &Frame, expected: &str) {
-    let mut buf = Vec::from(&ZEROED_KB[0..expected.as_bytes().len()]);
+    let mut buf = BytesMut::new();
 
     let len = match encode(&mut buf, input) {
       Ok(l) => l,

@@ -1,14 +1,9 @@
-
-use ::types::*;
-
 use crc16::{
   State,
   XMODEM
 };
-
-use bytes::BytesMut;
-
-use cookie_factory::GenError;
+use types::{Redirection, Error};
+use anyhow::anyhow;
 
 /// Terminating bytes between frames.
 pub const CRLF: &'static str = "\r\n";
@@ -22,17 +17,9 @@ pub const ZEROED_KB: &'static [u8; 1024] = &[0; 1024];
 
 const REDIS_CLUSTER_SLOTS: u16 = 16384;
 
-const PUBSUB_PREFIX: &'static str = "message";
-const PATTERN_PUBSUB_PREFIX: &'static str = "pmessage";
+// const PUBSUB_PREFIX: &'static str = "message";
+// const PATTERN_PUBSUB_PREFIX: &'static str = "pmessage";
 
-#[inline]
-pub fn check_offset(x: &(&mut [u8], usize)) -> Result<(), GenError> {
-  if x.1 > x.0.len() {
-    Err(GenError::InvalidOffset)
-  }else{
-    Ok(())
-  }
-}
 
 /// Returns the number of bytes necessary to encode a string representation of `d`.
 #[inline]
@@ -42,20 +29,6 @@ pub fn digits_in_number(d: usize) -> usize {
   }
 
   ((d as f64).log10()).floor() as usize + 1
-}
-
-#[inline]
-pub fn bulkstring_encode_len(b: &[u8]) -> usize {
-  1 + digits_in_number(b.len()) + 2 + b.len() + 2
-}
-
-#[inline]
-pub fn array_encode_len(frames: &Vec<Frame>) -> Result<usize, GenError> {
-  let padding = 1 + digits_in_number(frames.len()) + 2;
-
-  frames.iter().fold(Ok(padding), |m, f| {
-    m.and_then(|s| encode_len(f).map(|l| s + l))
-  })
 }
 
 #[inline]
@@ -84,66 +57,33 @@ pub fn integer_encode_len(i: &i64) -> usize {
   1 + digits_in_number(as_usize) + 2 + prefix
 }
 
-/// Returns the number of bytes necessary to represent the frame.
-pub fn encode_len(data: &Frame) -> Result<usize, GenError> {
-  match *data {
-    Frame::BulkString(ref b)   => Ok(bulkstring_encode_len(&b)),
-    Frame::Array(ref frames)   => array_encode_len(frames),
-    Frame::Null                => Ok(NULL.as_bytes().len()),
-    Frame::SimpleString(ref s) => Ok(simplestring_encode_len(s)),
-    Frame::Error(ref s)        => Ok(error_encode_len(s)),
-    Frame::Integer(ref i)      => Ok(integer_encode_len(i)),
-    Frame::Moved(ref s)        => Ok(error_encode_len(s)),
-    Frame::Ask(ref s)          => Ok(error_encode_len(s))
-  }
-}
-
-// this is faster than repeat(0).take(amt) at the cost of some memory
-pub fn zero_extend(buf: &mut BytesMut, mut amt: usize) {
-  trace!("allocating more, len: {}, amt: {}", buf.len(), amt);
-
-  buf.reserve(amt);
-  while amt >= KB {
-    buf.extend_from_slice(ZEROED_KB);
-    amt -= KB;
-  }
-  if amt > 0 {
-    buf.extend_from_slice(&ZEROED_KB[0..amt]);
-  }
-}
-
-#[inline]
-pub fn redirection_to_frame(prefix: &'static str, slot: u16, host: &str, port: u16) -> String {
-  format!("{} {} {}:{}", prefix, slot, host, port)
-}
-
-pub fn string_to_redirection(s: &str) -> Result<Redirection, RedisProtocolError> {
+pub fn string_to_redirection(s: &str) -> Result<Redirection, Error> {
   let parts: Vec<&str> = s.split(" ").collect();
 
   if parts.len() != 3 {
-    return Err(RedisProtocolError::new(RedisProtocolErrorKind::Unknown, "Invalid redirection."));
+    return Err(Error::Other(anyhow!("Invalid redirection")));
   }
 
   let is_moved = match parts[0].as_ref() {
     "MOVED" => true,
     "ASK"   => false,
-    _ => return Err(RedisProtocolError::new(RedisProtocolErrorKind::Unknown, "Invalid redirection kind."))
+    _ => return Err(Error::Other(anyhow!("Invalid redirection kind.")))
   };
 
   let slot = match parts[1].parse::<u16>() {
     Ok(s) => s,
-    Err(_) => return Err(RedisProtocolError::new(RedisProtocolErrorKind::Unknown, "Invalid hash slot redirection."))
+    Err(_) => return Err(Error::Other(anyhow!("Invalid hash slot redirection.")))
   };
 
   let address_parts: Vec<&str> = parts[2].split(":").collect();
   if address_parts.len() != 2 {
-    return Err(RedisProtocolError::new(RedisProtocolErrorKind::Unknown, "Invalid redirection address."));
+    return Err(Error::Other(anyhow!("Invalid redirection address.")));
   }
 
   let host = address_parts[0].to_owned();
   let port = match address_parts[1].parse::<u16>() {
     Ok(p) => p,
-    Err(_) => return Err(RedisProtocolError::new(RedisProtocolErrorKind::Unknown, "Invalid redirection address port."))
+    Err(_) => return Err(Error::Other(anyhow!("Invalid redirection address port.")))
   };
 
   if is_moved {
@@ -151,6 +91,11 @@ pub fn string_to_redirection(s: &str) -> Result<Redirection, RedisProtocolError>
   }else{
     Ok(Redirection::Ask {slot, host, port})
   }
+}
+
+#[inline]
+pub fn redirection_to_frame(prefix: &'static str, slot: u16, host: &str, port: u16) -> String {
+  format!("{} {} {}:{}", prefix, slot, host, port)
 }
 
 /// Perform a crc16 XMODEM operation against a string slice.
@@ -197,33 +142,6 @@ pub fn redis_keyslot(key: &str) -> u16 {
   out
 }
 
-pub fn read_cluster_error(payload: &str) -> Option<Frame> {
-  if payload.starts_with("MOVED") {
-    let parts: Vec<&str> = payload.split(" ").collect();
-    Some(Frame::Moved(parts[1..].join(" ").to_owned()))
-  }else if payload.starts_with("ASK") {
-    let parts: Vec<&str> = payload.split(" ").collect();
-    Some(Frame::Ask(parts[1..].join(" ").to_owned()))
-  }else{
-    None
-  }
-}
-
-pub fn opt_frame_to_string_panic(f: Option<Frame>, msg: &str) -> String {
-  f.expect(msg).to_string().expect(msg)
-}
-
-pub fn is_normal_pubsub(frames: &Vec<Frame>) -> bool {
-  frames.len() == 3
-    && frames[0].kind() == FrameKind::BulkString
-    && frames[0].as_str().map(|s| s == PUBSUB_PREFIX).unwrap_or(false)
-}
-
-pub fn is_pattern_pubsub(frames: &Vec<Frame>) -> bool {
-  frames.len() == 4
-    && frames[0].kind() == FrameKind::BulkString
-    && frames[0].as_str().map(|s| s == PATTERN_PUBSUB_PREFIX).unwrap_or(false)
-}
 
 #[cfg(test)]
 mod tests {
