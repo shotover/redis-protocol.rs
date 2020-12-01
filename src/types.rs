@@ -184,6 +184,15 @@ impl Frame {
     }
   }
 
+  pub fn as_str(&self) -> Option<&str> {
+    match *self {
+      Frame::BulkString(ref b)   => str::from_utf8(b).ok(),
+      Frame::SimpleString(ref s) => Some(s),
+      Frame::Error(ref s)        => Some(s),
+      _                          => None
+    }
+  }
+
 }
 impl PartialEq<&str> for Frame {
   fn eq(&self, other: &&str) -> bool {
