@@ -1,6 +1,5 @@
 
 use ::utils;
-use bytes::BufMut;
 use bytes::BytesMut;
 use ::types::*;
 
