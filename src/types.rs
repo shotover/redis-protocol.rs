@@ -7,6 +7,7 @@ use atoi::atoi;
 
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
+use std::io::Read;
 use std::fmt;
 use std::io::Cursor;
 use std::num::TryFromIntError;
@@ -167,7 +168,7 @@ impl Frame {
             return Err(Error::Incomplete);
           }
 
-          let data = Bytes::copy_from_slice(&src.bytes()[..len]);
+          let data = Bytes::copy_from_slice(&src.get_ref()[..len]);
 
           // skip that number of bytes + 2 (\r\n).
           skip(src, n)?;
@@ -241,7 +242,7 @@ fn peek_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
     return Err(Error::Incomplete);
   }
 
-  Ok(src.bytes()[0])
+  Ok(src.get_ref()[0])
 }
 
 fn get_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
