@@ -198,8 +198,8 @@ impl Frame {
       _                          => None
     }
   }
-
 }
+
 impl PartialEq<&str> for Frame {
   fn eq(&self, other: &&str) -> bool {
     match self {
@@ -241,7 +241,6 @@ fn peek_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
   if !src.has_remaining() {
     return Err(Error::Incomplete);
   }
-
   Ok(src.get_ref()[0])
 }
 
