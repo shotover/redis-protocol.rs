@@ -47,8 +47,13 @@ pub enum Frame {
   #[serde(with = "my_bytes")]
   BulkString(Bytes),
   Array(Vec<Frame>),
-  Moved(String),
-  Ask(String),
+  Moved {
+    slot: u16,
+    host: String,
+    port: u16 },
+  Ask{slot: u16,
+    host: String,
+    port: u16 },
   Null
 }
 
@@ -225,8 +230,8 @@ impl fmt::Display for Frame {
 
         Ok(())
       }
-      Frame::Moved(response) => response.fmt(fmt),
-      Frame::Ask(response) => response.fmt(fmt)
+      Frame::Moved{slot, host, port} => write!(fmt, "MOVED {} {}:{}", slot, host, port),
+      Frame::Ask{slot, host, port} => write!(fmt, "ASK {} {}:{}", slot, host, port)
     }
   }
 }
@@ -331,8 +336,16 @@ impl fmt::Display for Error {
 impl From<Redirection> for Frame {
   fn from(redirection: Redirection) -> Self {
     match redirection {
-      Redirection::Moved {ref slot, ref host, ref port} => Frame::Moved(utils::redirection_to_frame("MOVED", *slot, host, *port)),
-      Redirection::Ask {ref slot, ref host, ref port}   => Frame::Ask(utils::redirection_to_frame("ASK", *slot, host, *port))
+      Redirection::Moved {ref slot, ref host, ref port} => Frame::Moved {
+        slot: *slot,
+        host: host.to_string(),
+        port: *port
+      },
+      Redirection::Ask {ref slot, ref host, ref port}   => Frame::Ask {
+        slot: *slot,
+        host: host.to_string(),
+        port: *port
+      }
     }
   }
 }

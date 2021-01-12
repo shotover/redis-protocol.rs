@@ -85,14 +85,14 @@ fn write_value(stream: & mut BytesMut, frame: &Frame) -> io::Result<()> {
         write_value(stream, v)?;
       }
     },
-    Frame::Moved(val) => {
+    Frame::Moved { slot, host, port } => {
       stream.put_u8(b'-');
-      stream.put_slice(val.as_bytes());
+      stream.put_slice(format!("MOVED {} {}:{}", slot, host, port).as_bytes());
       stream.put_slice(b"\r\n");
     }
-    Frame::Ask(val) => {
+    Frame::Ask { slot, host, port } => {
       stream.put_u8(b'-');
-      stream.put_slice(val.as_bytes());
+      stream.put_slice(format!("MOVED {} {}:{}", slot, host, port).as_bytes());
       stream.put_slice(b"\r\n");
     }
   }
