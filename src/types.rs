@@ -147,7 +147,7 @@ impl Frame {
       }
       b':' => {
         let len = get_decimal(src)?;
-        Ok(Frame::Integer(len))
+        Ok(Frame::Integer(len as i64))
       }
       b'$' => {
         if b'-' == peek_u8(src)? {
@@ -164,11 +164,10 @@ impl Frame {
           let n = len + 2;
 
           if src.remaining() < n {
-            // println!("{}", src.remaining());
             return Err(Error::Incomplete);
           }
 
-          let data = Bytes::copy_from_slice(&src.get_ref()[..len]);
+          let data = Bytes::copy_from_slice(&src.chunk()[..len]);
 
           // skip that number of bytes + 2 (\r\n).
           skip(src, n)?;
@@ -241,7 +240,8 @@ fn peek_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
   if !src.has_remaining() {
     return Err(Error::Incomplete);
   }
-  Ok(src.get_ref()[0])
+
+  Ok(src.chunk()[0])
 }
 
 fn get_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
@@ -262,10 +262,12 @@ fn skip(src: &mut Cursor<&[u8]>, n: usize) -> Result<(), Error> {
 }
 
 /// Read a new-line terminated decimal
-fn get_decimal(src: &mut Cursor<&[u8]>) -> Result<i64, Error> {
+fn get_decimal(src: &mut Cursor<&[u8]>) -> Result<u64, Error> {
+  use atoi::atoi;
+
   let line = get_line(src)?;
 
-  atoi::<i64>(line).ok_or_else(|| "protocol error; invalid frame format".into())
+  atoi::<u64>(line).ok_or_else(|| "protocol error; invalid frame format".into())
 }
 
 /// Find a line

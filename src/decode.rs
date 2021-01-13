@@ -158,7 +158,7 @@ mod tests {
   #[test]
   fn should_decode_moved_error() {
     let mut bytes: BytesMut = "-MOVED 3999 127.0.0.1:6381\r\n".into();
-    let expected = (Some(Frame::Moved("MOVED 3999 127.0.0.1:6381".into())), bytes.len());
+    let expected = (Some(Frame::Moved{slot: 3999, host: "127.0.0.1".to_string(), port: 6381}), bytes.len());
 
     decode_and_verify_some(&mut bytes, &expected);
     decode_and_verify_padded_some(&mut bytes, &expected);
@@ -167,7 +167,7 @@ mod tests {
   #[test]
   fn should_decode_ask_error() {
     let mut bytes: BytesMut = "-ASK 3999 127.0.0.1:6381\r\n".into();
-    let expected = (Some(Frame::Ask("ASK 3999 127.0.0.1:6381".into())), bytes.len());
+    let expected = (Some(Frame::Ask{slot: 3999, host: "127.0.0.1".to_string(), port: 6381}), bytes.len());
 
     decode_and_verify_some(&mut bytes, &expected);
     decode_and_verify_padded_some(&mut bytes, &expected);

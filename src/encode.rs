@@ -92,7 +92,7 @@ fn write_value(stream: & mut BytesMut, frame: &Frame) -> io::Result<()> {
     }
     Frame::Ask { slot, host, port } => {
       stream.put_u8(b'-');
-      stream.put_slice(format!("MOVED {} {}:{}", slot, host, port).as_bytes());
+      stream.put_slice(format!("ASK {} {}:{}", slot, host, port).as_bytes());
       stream.put_slice(b"\r\n");
     }
   }
@@ -153,6 +153,9 @@ mod tests {
       Ok(l) => l,
       Err(e) => panic!("{:?}", e)
     };
+
+    println!("{:?}", buf);
+    println!("{:?}", expected);
 
     assert_eq!(buf, expected.as_bytes(), "empty buf contents match");
     assert_eq!(len, expected.as_bytes().len(), "empty expected len is correct");
@@ -325,7 +328,7 @@ mod tests {
   #[test]
   fn should_encode_moved_error() {
     let expected = "-MOVED 3999 127.0.0.1:6381\r\n";
-    let input = Frame::Moved("MOVED 3999 127.0.0.1:6381".into());
+    let input = Frame::Moved{slot: 3999, host: "127.0.0.1".to_string(), port: 6381};
 
     encode_and_verify_empty(&input, expected);
     encode_and_verify_non_empty(&input, expected);
@@ -334,7 +337,7 @@ mod tests {
   #[test]
   fn should_encode_ask_error() {
     let expected = "-ASK 3999 127.0.0.1:6381\r\n";
-    let input = Frame::Ask("ASK 3999 127.0.0.1:6381".into());
+    let input = Frame::Ask{slot: 3999, host: "127.0.0.1".to_string(), port: 6381};
 
     encode_and_verify_empty(&input, expected);
     encode_and_verify_non_empty(&input, expected);
