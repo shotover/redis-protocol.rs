@@ -91,7 +91,7 @@ impl Frame {
         Ok(())
       }
       b':' => {
-        let _ = get_decimal(src)?;
+        let _ = get_decimal_signed(src)?;
         Ok(())
       }
       b'$' => {
@@ -121,6 +121,7 @@ impl Frame {
 
   /// The message has already been validated with `check`.
   pub fn parse(src: &mut Cursor<&[u8]>) -> Result<Frame, Error> {
+    // debug!("{:?}", String::from_utf8_lossy(src));
     match get_u8(src)? {
       b'+' => {
         // Read the line and convert it to `Vec<u8>`
@@ -146,8 +147,8 @@ impl Frame {
 
       }
       b':' => {
-        let len = get_decimal(src)?;
-        Ok(Frame::Integer(len as i64))
+        let len = get_decimal_signed(src)?;
+        Ok(Frame::Integer(len))
       }
       b'$' => {
         if b'-' == peek_u8(src)? {
@@ -267,7 +268,22 @@ fn get_decimal(src: &mut Cursor<&[u8]>) -> Result<u64, Error> {
 
   let line = get_line(src)?;
 
-  atoi::<u64>(line).ok_or_else(|| "protocol error; invalid frame format".into())
+  atoi::<u64>(line).ok_or_else(|| {
+    debug!("uh oh {:?}", String::from_utf8_lossy(line));
+    "protocol error; invalid frame format".into()
+  })
+}
+
+/// Read a new-line terminated decimal
+fn get_decimal_signed(src: &mut Cursor<&[u8]>) -> Result<i64, Error> {
+  use atoi::atoi;
+
+  let line = get_line(src)?;
+
+  atoi::<i64>(line).ok_or_else(|| {
+    debug!("uh oh {:?}", String::from_utf8_lossy(line));
+    "protocol error; invalid frame format".into()
+  })
 }
 
 /// Find a line
