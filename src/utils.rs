@@ -1,7 +1,7 @@
 use crate::resp2::types::Frame as Resp2Frame;
 use crate::resp3::types::Frame as Resp3Frame;
 use crate::types::*;
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use cookie_factory::GenError;
 use crc16::{State, XMODEM};
 use std::str;
@@ -227,7 +227,7 @@ pub fn resp3_frame_to_resp2(frame: Resp3Frame) -> Result<Resp2Frame, RedisProtoc
       }
     }
     Resp3Frame::Number { data, .. } => Ok(Resp2Frame::Integer(data)),
-    Resp3Frame::Double { data, .. } => Ok(Resp2Frame::BulkString(data.to_string().into_bytes())),
+    Resp3Frame::Double { data, .. } => Ok(Resp2Frame::BulkString(Bytes::from(data.to_string().into_bytes()))),
     Resp3Frame::VerbatimString { data, .. } => Ok(Resp2Frame::BulkString(data)),
     Resp3Frame::SimpleError { data, .. } => Ok(Resp2Frame::Error(data)),
     Resp3Frame::SimpleString { data, .. } => Ok(Resp2Frame::SimpleString(data)),

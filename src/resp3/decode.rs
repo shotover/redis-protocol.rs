@@ -5,6 +5,7 @@
 use crate::resp3::types::*;
 use crate::resp3::utils as resp3_utils;
 use crate::types::*;
+use bytes::Bytes;
 use nom::bytes::streaming::{take as nom_take, take_until as nom_take_until};
 use nom::combinator::{map as nom_map, map_res as nom_map_res, opt as nom_opt};
 use nom::multi::count as nom_count;
@@ -226,7 +227,7 @@ fn d_parse_blobstring(input: &[u8], len: usize) -> IResult<&[u8], Frame, RedisPa
   Ok((
     input,
     Frame::BlobString {
-      data: data.to_vec(),
+      data: Bytes::from(data.to_vec()),
       attributes: None,
     },
   ))
@@ -239,7 +240,7 @@ fn d_parse_bloberror(input: &[u8]) -> IResult<&[u8], Frame, RedisParseError<&[u8
   Ok((
     input,
     Frame::BlobError {
-      data: data.to_vec(),
+      data: Bytes::from(data.to_vec()),
       attributes: None,
     },
   ))
@@ -254,7 +255,7 @@ fn d_parse_verbatimstring(input: &[u8]) -> IResult<&[u8], Frame, RedisParseError
   Ok((
     input,
     Frame::VerbatimString {
-      data: data.to_vec(),
+      data: Bytes::from(data.to_vec()),
       format,
       attributes: None,
     },
@@ -267,7 +268,7 @@ fn d_parse_bignumber(input: &[u8]) -> IResult<&[u8], Frame, RedisParseError<&[u8
   Ok((
     input,
     Frame::BigNumber {
-      data: data.to_vec(),
+      data: Bytes::from(data.to_vec()),
       attributes: None,
     },
   ))
@@ -387,7 +388,7 @@ fn d_parse_chunked_string(input: &[u8]) -> IResult<&[u8], DecodedFrame, RedisPar
     (input, Frame::new_end_stream())
   } else {
     let (input, contents) = nom_terminated(nom_take(len), nom_take(2_usize))(input)?;
-    (input, Frame::ChunkedString(Vec::from(contents)))
+    (input, Frame::ChunkedString(Bytes::from(contents.to_vec())))
   };
 
   Ok((input, DecodedFrame::Complete(frame)))

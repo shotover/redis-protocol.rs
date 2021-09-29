@@ -1,6 +1,7 @@
 use crate::resp3::types::*;
 use crate::types::{RedisProtocolError, RedisProtocolErrorKind};
 use crate::utils::{digits_in_number, PATTERN_PUBSUB_PREFIX, PUBSUB_PREFIX, PUBSUB_PUSH_PREFIX};
+use bytes::BytesMut;
 use cookie_factory::GenError;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -268,7 +269,7 @@ pub fn reconstruct_blobstring(
   attributes: Option<Attributes>,
 ) -> Result<Frame, RedisProtocolError> {
   let total_len = frames.iter().fold(0, |m, f| m + f.len());
-  let mut data = Vec::with_capacity(total_len);
+  let mut data = BytesMut::with_capacity(total_len);
 
   for frame in frames.into_iter() {
     data.extend_from_slice(match frame {
@@ -282,6 +283,8 @@ pub fn reconstruct_blobstring(
       }
     });
   }
+
+  let data = data.freeze();
 
   Ok(Frame::BlobString { data, attributes })
 }
