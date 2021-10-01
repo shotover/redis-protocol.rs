@@ -1,6 +1,7 @@
 use crate::resp2::utils as resp2_utils;
 use crate::types::{Redirection, RedisProtocolError};
 use crate::utils;
+use bytes::Bytes;
 use std::mem;
 use std::str;
 
@@ -66,7 +67,7 @@ pub enum Frame {
   /// A signed 64 bit integer.
   Integer(i64),
   /// A binary-safe string.
-  BulkString(Vec<u8>),
+  BulkString(Bytes),
   /// An array of frames, arbitrarily nested.
   Array(Vec<Frame>),
   /// A null value.

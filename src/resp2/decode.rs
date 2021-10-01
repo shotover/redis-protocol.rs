@@ -4,6 +4,7 @@
 
 use crate::resp2::types::*;
 use crate::types::*;
+use bytes::Bytes;
 use nom::number::streaming::be_u8;
 use nom::Err as NomError;
 use std::num::ParseIntError;
@@ -70,7 +71,7 @@ named!(parse_error<Frame>, map!(read_to_crlf_s, map_error));
 named_args!(parse_bulkstring(len: isize) <Frame>,
   do_parse!(
     d: terminated!(take!(len), take!(2)) >>
-    (Frame::BulkString(Vec::from(d)))
+    (Frame::BulkString(Bytes::from(Vec::from(d))))
   )
 );
 

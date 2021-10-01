@@ -1,6 +1,7 @@
 use crate::resp3::utils as resp3_utils;
 use crate::types::{Redirection, RedisProtocolError, RedisProtocolErrorKind};
 use crate::utils;
+use bytes::Bytes;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::{TryFrom, TryInto};
@@ -290,12 +291,12 @@ impl FrameKind {
 pub enum Frame {
   /// A binary-safe blob.
   BlobString {
-    data: Vec<u8>,
+    data: Bytes,
     attributes: Option<Attributes>,
   },
   /// A binary-safe blob representing an error.
   BlobError {
-    data: Vec<u8>,
+    data: Bytes,
     attributes: Option<Attributes>,
   },
   /// A small non binary-safe string.
@@ -320,12 +321,12 @@ pub enum Frame {
   ///
   /// This library does not attempt to parse this, nor does it offer any utilities to do so.
   BigNumber {
-    data: Vec<u8>,
+    data: Bytes,
     attributes: Option<Attributes>,
   },
   /// A binary-safe string to be displayed without any escaping or filtering.
   VerbatimString {
-    data: Vec<u8>,
+    data: Bytes,
     format: VerbatimStringFormat,
     attributes: Option<Attributes>,
   },
@@ -357,7 +358,7 @@ pub enum Frame {
   /// A special frame type used when first connecting to the server to describe the protocol version and optional credentials.
   Hello { version: RespVersion, auth: Option<Auth> },
   /// One chunk of a streaming string.
-  ChunkedString(Vec<u8>),
+  ChunkedString(Bytes),
 }
 
 impl Hash for Frame {
@@ -588,20 +589,21 @@ impl TryFrom<(FrameKind, Vec<u8>)> for Frame {
   type Error = RedisProtocolError;
 
   fn try_from((kind, value): (FrameKind, Vec<u8>)) -> Result<Self, Self::Error> {
+    // TODO: expose as bytes?
     let frame = match kind {
       FrameKind::BlobString => Frame::BlobString {
-        data: value,
+        data: Bytes::from(value),
         attributes: None,
       },
       FrameKind::BlobError => Frame::BlobError {
-        data: value,
+        data: Bytes::from(value),
         attributes: None,
       },
       FrameKind::BigNumber => Frame::BigNumber {
-        data: value,
+        data: Bytes::from(value),
         attributes: None,
       },
-      FrameKind::ChunkedString => Frame::ChunkedString(value),
+      FrameKind::ChunkedString => Frame::ChunkedString(Bytes::from(value)),
       _ => {
         return Err(RedisProtocolError::new(
           RedisProtocolErrorKind::Unknown,
@@ -750,18 +752,18 @@ impl TryFrom<(FrameKind, String)> for Frame {
         attributes: None,
       },
       FrameKind::BlobError => Frame::BlobError {
-        data: value.into_bytes(),
+        data: Bytes::from(value.into_bytes()),
         attributes: None,
       },
       FrameKind::BlobString => Frame::BlobString {
-        data: value.into_bytes(),
+        data: Bytes::from(value.into_bytes()),
         attributes: None,
       },
       FrameKind::BigNumber => Frame::BigNumber {
-        data: value.into_bytes(),
+        data: Bytes::from(value.into_bytes()),
         attributes: None,
       },
-      FrameKind::ChunkedString => Frame::ChunkedString(value.into_bytes()),
+      FrameKind::ChunkedString => Frame::ChunkedString(Bytes::from(value.into_bytes())),
       _ => {
         return Err(RedisProtocolError::new(
           RedisProtocolErrorKind::Unknown,
@@ -905,7 +907,7 @@ impl Frame {
 
   /// Create a new `Frame` that terminates a stream.
   pub fn new_end_stream() -> Self {
-    Frame::ChunkedString(vec![])
+    Frame::ChunkedString(Bytes::new())
   }
 
   /// A context-aware length function that returns the length of the inner frame contents.
